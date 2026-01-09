@@ -52,7 +52,7 @@ streamlit run financial_dashboard.py
 
 The dashboard will open automatically in your default web browser at `http://localhost:8501`
 
-## 📖 How to Use
+##  How to Use
 
 ### Configuration (Sidebar)
 1. **Stock Selection**: Enter stock tickers separated by commas (e.g., AAPL, MSFT, GOOGL)
