@@ -1,35 +1,35 @@
-# 📈 Financial Analytics Dashboard
+# Financial Analytics Dashboard
 
 A comprehensive Streamlit web application for financial data analysis and portfolio management. This interactive dashboard provides real-time stock market data, performance analytics, risk metrics, and portfolio insights.
 
-## 🌟 Features
+##  Features
 
-### 📊 Market Overview
+### Market Overview
 - Real-time stock price data from Yahoo Finance
 - Key metrics: Current Price, Total Return, Volatility, Sharpe Ratio
 - Normalized price comparison across multiple stocks
 - Customizable stock selection and date ranges
 
-### 📈 Performance Analysis
+### Performance Analysis
 - Interactive candlestick charts
 - Trading volume visualization
 - Daily returns distribution
 - Historical price trends
 
-### 🎯 Portfolio Analysis
+###  Portfolio Analysis
 - Equal-weighted portfolio tracking
 - Cumulative returns comparison
 - Correlation matrix heatmap
 - Portfolio-level risk metrics
 
-### 📉 Risk Metrics
+###  Risk Metrics
 - Comprehensive risk metrics table
 - Risk-Return scatter plot
 - Value at Risk (VaR) calculations
 - Maximum drawdown analysis
 - Sharpe ratio for risk-adjusted returns
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -65,7 +65,7 @@ The dashboard will open automatically in your default web browser at `http://loc
 - **Portfolio Analysis Tab**: Portfolio-level metrics and correlation analysis
 - **Risk Metrics Tab**: Comprehensive risk analysis and VaR calculations
 
-## 📊 Key Metrics Explained
+##  Key Metrics Explained
 
 - **Total Return**: Percentage change from start date to current
 - **Volatility**: Annualized standard deviation of returns (higher = more volatile)
@@ -73,7 +73,7 @@ The dashboard will open automatically in your default web browser at `http://loc
 - **Max Drawdown**: Largest peak-to-trough decline (shows worst-case scenario)
 - **VaR (95%)**: Maximum expected loss in a single day, 95% of the time
 
-## 🛠️ Technical Stack
+##  Technical Stack
 
 - **Streamlit**: Interactive web framework
 - **yfinance**: Real-time financial data API
@@ -81,7 +81,7 @@ The dashboard will open automatically in your default web browser at `http://loc
 - **Pandas**: Data manipulation and analysis
 - **NumPy**: Numerical computations
 
-## 💡 Use Cases
+##  Use Cases
 
 - **Portfolio Management**: Track and analyze investment portfolios
 - **Financial Research**: Compare stocks and analyze market trends
@@ -89,7 +89,7 @@ The dashboard will open automatically in your default web browser at `http://loc
 - **Educational**: Learn about financial metrics and portfolio analysis
 - **Interview/Portfolio**: Demonstrate finance and data analytics skills
 
-## 🎯 Skills Demonstrated
+##  Skills Demonstrated
 
 - Financial data analysis and modeling
 - Interactive dashboard development
@@ -99,11 +99,11 @@ The dashboard will open automatically in your default web browser at `http://loc
 - Statistical analysis and risk metrics
 - Web application development (Streamlit)
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This dashboard is for educational and analytical purposes only. The information provided should not be considered as financial advice. Always conduct your own research and consult with financial professionals before making investment decisions.
 
-## 🔄 Future Enhancements
+## Future Enhancements
 
 Potential features to add:
 - [ ] Custom portfolio weights
@@ -115,14 +115,14 @@ Potential features to add:
 - [ ] Economic indicators integration
 - [ ] Backtesting functionality
 
-## 📝 License
+## License
 
 This project is open source and available for educational purposes.
 
-## 🤝 Contributing
+## Contributing
 
 Feel free to fork this project and customize it for your needs. Suggestions and improvements are welcome!
 
 ---
 
-**Built with ❤️ using Streamlit and Python**
+
