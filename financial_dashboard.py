@@ -42,18 +42,18 @@ with st.sidebar:
     st.header("⚙️ Configuration")
     
     # Stock selection
-    default_stocks = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    default_stocks = ["AAPL", "MSFT", "GOOGL"]
     stock_input = st.text_input(
         "Enter stock tickers (comma-separated)",
         value=", ".join(default_stocks)
     )
-    selected_stocks = [s.strip().upper() for s in stock_input.split(",")]
+    selected_stocks = [s.strip().upper() for s in stock_input.split(",") if s.strip()]
     
     # Date range
     st.subheader("Date Range")
     time_period = st.selectbox(
         "Select Period",
-        ["1M", "3M", "6M", "1Y", "2Y", "5Y", "Max"],
+        ["1M", "3M", "6M", "1Y", "2Y", "5Y"],
         index=3
     )
     
@@ -64,8 +64,7 @@ with st.sidebar:
         "6M": 180,
         "1Y": 365,
         "2Y": 730,
-        "5Y": 1825,
-        "Max": 3650
+        "5Y": 1825
     }
     
     end_date = datetime.now()
@@ -79,8 +78,27 @@ with st.sidebar:
 @st.cache_data(ttl=3600)
 def fetch_stock_data(ticker, start, end):
     try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(start=start, end=end)
+        # Use download method which is more reliable in cloud environments
+        df = yf.download(
+            ticker, 
+            start=start, 
+            end=end, 
+            progress=False,
+            auto_adjust=True
+        )
+        
+        # Check if data is empty
+        if df.empty:
+            return None
+        
+        # Ensure we have the columns we need
+        if 'Close' not in df.columns and 'close' in df.columns:
+            df.rename(columns={'close': 'Close'}, inplace=True)
+        
+        # For multi-index columns (when ticker is in column name)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
         return df
     except Exception as e:
         st.error(f"Error fetching data for {ticker}: {str(e)}")
@@ -91,52 +109,67 @@ def calculate_metrics(df):
     if df is None or df.empty:
         return None
     
-    current_price = df['Close'].iloc[-1]
-    start_price = df['Close'].iloc[0]
-    
-    # Returns
-    total_return = ((current_price - start_price) / start_price) * 100
-    daily_returns = df['Close'].pct_change().dropna()
-    
-    # Volatility (annualized)
-    volatility = daily_returns.std() * np.sqrt(252) * 100
-    
-    # Sharpe Ratio (assuming 2% risk-free rate)
-    risk_free_rate = 0.02
-    excess_returns = daily_returns - (risk_free_rate / 252)
-    sharpe_ratio = (excess_returns.mean() / daily_returns.std()) * np.sqrt(252) if daily_returns.std() != 0 else 0
-    
-    # Max Drawdown
-    cumulative = (1 + daily_returns).cumprod()
-    running_max = cumulative.expanding().max()
-    drawdown = (cumulative - running_max) / running_max
-    max_drawdown = drawdown.min() * 100
-    
-    return {
-        "current_price": current_price,
-        "total_return": total_return,
-        "volatility": volatility,
-        "sharpe_ratio": sharpe_ratio,
-        "max_drawdown": max_drawdown
-    }
+    try:
+        current_price = df['Close'].iloc[-1]
+        start_price = df['Close'].iloc[0]
+        
+        # Returns
+        total_return = ((current_price - start_price) / start_price) * 100
+        daily_returns = df['Close'].pct_change().dropna()
+        
+        # Volatility (annualized)
+        volatility = daily_returns.std() * np.sqrt(252) * 100
+        
+        # Sharpe Ratio (assuming 2% risk-free rate)
+        risk_free_rate = 0.02
+        excess_returns = daily_returns - (risk_free_rate / 252)
+        sharpe_ratio = (excess_returns.mean() / daily_returns.std()) * np.sqrt(252) if daily_returns.std() != 0 else 0
+        
+        # Max Drawdown
+        cumulative = (1 + daily_returns).cumprod()
+        running_max = cumulative.expanding().max()
+        drawdown = (cumulative - running_max) / running_max
+        max_drawdown = drawdown.min() * 100
+        
+        return {
+            "current_price": current_price,
+            "total_return": total_return,
+            "volatility": volatility,
+            "sharpe_ratio": sharpe_ratio,
+            "max_drawdown": max_drawdown
+        }
+    except Exception as e:
+        st.error(f"Error calculating metrics: {str(e)}")
+        return None
 
 # Main content
 tabs = st.tabs(["📊 Overview", "📈 Performance", "🎯 Portfolio Analysis", "📉 Risk Metrics"])
 
-# Fetch data for all stocks
+# Fetch data for all stocks with progress indicator
+if not selected_stocks:
+    st.warning("Please enter at least one stock ticker.")
+    st.stop()
+
 stock_data = {}
-for ticker in selected_stocks:
-    with st.spinner(f"Fetching data for {ticker}..."):
-        data = fetch_stock_data(ticker, start_date, end_date)
-        if data is not None and not data.empty:
-            stock_data[ticker] = data
+progress_bar = st.progress(0)
+status_text = st.empty()
+
+for idx, ticker in enumerate(selected_stocks):
+    status_text.text(f"Fetching data for {ticker}... ({idx + 1}/{len(selected_stocks)})")
+    data = fetch_stock_data(ticker, start_date, end_date)
+    if data is not None and not data.empty:
+        stock_data[ticker] = data
+    progress_bar.progress((idx + 1) / len(selected_stocks))
+
+progress_bar.empty()
+status_text.empty()
 
 # Tab 1: Overview
 with tabs[0]:
     st.header("Market Overview")
     
     if not stock_data:
-        st.warning("No valid stock data available. Please check your ticker symbols.")
+        st.warning("⚠️ No valid stock data available. Please check your ticker symbols and try again.")
     else:
         # Display metrics for each stock
         cols = st.columns(min(len(stock_data), 3))
@@ -193,45 +226,46 @@ with tabs[1]:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Candlestick chart
-            fig_candle = go.Figure(data=[go.Candlestick(
+            # Price chart
+            fig_price = go.Figure()
+            fig_price.add_trace(go.Scatter(
                 x=df.index,
-                open=df['Open'],
-                high=df['High'],
-                low=df['Low'],
-                close=df['Close'],
-                name=selected_stock
-            )])
+                y=df['Close'],
+                mode='lines',
+                name='Close Price',
+                line=dict(color='#2563eb', width=2)
+            ))
             
-            fig_candle.update_layout(
-                title=f"{selected_stock} - Candlestick Chart",
+            fig_price.update_layout(
+                title=f"{selected_stock} - Price Chart",
                 xaxis_title="Date",
                 yaxis_title="Price ($)",
                 height=400,
                 template="plotly_white"
             )
             
-            st.plotly_chart(fig_candle, use_container_width=True)
+            st.plotly_chart(fig_price, use_container_width=True)
         
         with col2:
-            # Volume chart
-            fig_volume = go.Figure()
-            fig_volume.add_trace(go.Bar(
-                x=df.index,
-                y=df['Volume'],
-                name='Volume',
-                marker_color='lightblue'
-            ))
-            
-            fig_volume.update_layout(
-                title=f"{selected_stock} - Trading Volume",
-                xaxis_title="Date",
-                yaxis_title="Volume",
-                height=400,
-                template="plotly_white"
-            )
-            
-            st.plotly_chart(fig_volume, use_container_width=True)
+            # Volume chart (if available)
+            if 'Volume' in df.columns:
+                fig_volume = go.Figure()
+                fig_volume.add_trace(go.Bar(
+                    x=df.index,
+                    y=df['Volume'],
+                    name='Volume',
+                    marker_color='lightblue'
+                ))
+                
+                fig_volume.update_layout(
+                    title=f"{selected_stock} - Trading Volume",
+                    xaxis_title="Date",
+                    yaxis_title="Volume",
+                    height=400,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig_volume, use_container_width=True)
         
         # Daily returns distribution
         st.subheader("Daily Returns Distribution")
@@ -256,7 +290,7 @@ with tabs[1]:
 with tabs[2]:
     st.header("Portfolio Analysis")
     
-    if stock_data:
+    if stock_data and len(stock_data) > 1:
         # Calculate portfolio performance (equal weight)
         portfolio_returns = pd.DataFrame()
         
@@ -326,6 +360,10 @@ with tabs[2]:
         
         fig_corr.update_layout(height=500)
         st.plotly_chart(fig_corr, use_container_width=True)
+    elif stock_data and len(stock_data) == 1:
+        st.info("📊 Add at least 2 stocks to see portfolio analysis and correlation.")
+    else:
+        st.warning("⚠️ No stock data available for portfolio analysis.")
 
 # Tab 4: Risk Metrics
 with tabs[3]:
@@ -347,60 +385,61 @@ with tabs[3]:
                     "Max Drawdown": f"{metrics['max_drawdown']:.2f}%"
                 })
         
-        risk_df = pd.DataFrame(risk_data)
-        st.dataframe(risk_df, use_container_width=True, hide_index=True)
-        
-        # Risk-Return scatter plot
-        st.subheader("Risk-Return Profile")
-        
-        scatter_data = []
-        for ticker, df in stock_data.items():
-            metrics = calculate_metrics(df)
-            if metrics:
-                scatter_data.append({
+        if risk_data:
+            risk_df = pd.DataFrame(risk_data)
+            st.dataframe(risk_df, use_container_width=True, hide_index=True)
+            
+            # Risk-Return scatter plot
+            st.subheader("Risk-Return Profile")
+            
+            scatter_data = []
+            for ticker, df in stock_data.items():
+                metrics = calculate_metrics(df)
+                if metrics:
+                    scatter_data.append({
+                        "Ticker": ticker,
+                        "Return": metrics['total_return'],
+                        "Volatility": metrics['volatility']
+                    })
+            
+            scatter_df = pd.DataFrame(scatter_data)
+            
+            fig_scatter = px.scatter(
+                scatter_df,
+                x='Volatility',
+                y='Return',
+                text='Ticker',
+                title="Risk-Return Profile",
+                labels={'Volatility': 'Volatility (%)', 'Return': 'Total Return (%)'}
+            )
+            
+            fig_scatter.update_traces(
+                textposition='top center',
+                marker=dict(size=15, line=dict(width=2, color='DarkSlateGrey'))
+            )
+            
+            fig_scatter.update_layout(
+                height=500,
+                template="plotly_white"
+            )
+            
+            st.plotly_chart(fig_scatter, use_container_width=True)
+            
+            # Value at Risk (VaR)
+            st.subheader("Value at Risk (VaR) - 95% Confidence")
+            
+            var_data = []
+            for ticker, df in stock_data.items():
+                daily_returns = df['Close'].pct_change().dropna()
+                var_95 = np.percentile(daily_returns, 5) * 100
+                var_data.append({
                     "Ticker": ticker,
-                    "Return": metrics['total_return'],
-                    "Volatility": metrics['volatility']
+                    "1-Day VaR (95%)": f"{var_95:.2f}%",
+                    "Interpretation": f"5% chance of losing more than {abs(var_95):.2f}% in a day"
                 })
-        
-        scatter_df = pd.DataFrame(scatter_data)
-        
-        fig_scatter = px.scatter(
-            scatter_df,
-            x='Volatility',
-            y='Return',
-            text='Ticker',
-            title="Risk-Return Profile",
-            labels={'Volatility': 'Volatility (%)', 'Return': 'Total Return (%)'}
-        )
-        
-        fig_scatter.update_traces(
-            textposition='top center',
-            marker=dict(size=15, line=dict(width=2, color='DarkSlateGrey'))
-        )
-        
-        fig_scatter.update_layout(
-            height=500,
-            template="plotly_white"
-        )
-        
-        st.plotly_chart(fig_scatter, use_container_width=True)
-        
-        # Value at Risk (VaR)
-        st.subheader("Value at Risk (VaR) - 95% Confidence")
-        
-        var_data = []
-        for ticker, df in stock_data.items():
-            daily_returns = df['Close'].pct_change().dropna()
-            var_95 = np.percentile(daily_returns, 5) * 100
-            var_data.append({
-                "Ticker": ticker,
-                "1-Day VaR (95%)": f"{var_95:.2f}%",
-                "Interpretation": f"5% chance of losing more than {abs(var_95):.2f}% in a day"
-            })
-        
-        var_df = pd.DataFrame(var_data)
-        st.dataframe(var_df, use_container_width=True, hide_index=True)
+            
+            var_df = pd.DataFrame(var_data)
+            st.dataframe(var_df, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
